@@ -1,0 +1,834 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Brooder remote dashboard</title>
+<style>
+:root{
+  --bg:#040a18;--panel:rgba(9,20,44,.78);--panel2:rgba(14,30,62,.7);
+  --line:rgba(70,160,255,.22);--line2:rgba(70,160,255,.1);
+  --text:#e6f1ff;--muted:#7f93b5;
+  --cyan:#22e4ff;--mag:#e040fb;--vio:#8b5cf6;--yel:#ffd23f;
+  --ok:#2dff9a;--warn:#ffb020;--bad:#ff4d6d;--accent:var(--cyan);
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Roboto Mono",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;color:var(--text);font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;
+  background:
+   radial-gradient(900px 500px at 8% -5%,rgba(34,228,255,.13),transparent 60%),
+   radial-gradient(800px 600px at 100% 10%,rgba(139,92,246,.16),transparent 60%),
+   radial-gradient(700px 500px at 50% 110%,rgba(224,64,251,.1),transparent 60%),
+   var(--bg);background-attachment:fixed}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--line2) 1px,transparent 1px),linear-gradient(90deg,var(--line2) 1px,transparent 1px);
+  background-size:44px 44px;mask-image:radial-gradient(ellipse at 50% 30%,#000 20%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse at 50% 30%,#000 20%,transparent 75%);opacity:.55}
+header,main{position:relative;z-index:1}
+
+/* header */
+.top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding:14px 22px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(10,24,52,.85),rgba(6,14,32,.6));backdrop-filter:blur(8px);position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:38px;height:38px;filter:drop-shadow(0 0 8px rgba(34,228,255,.7))}
+h1{font-size:17px;margin:0;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.tag{font:11px var(--mono);color:var(--cyan);letter-spacing:.28em;opacity:.8}
+.hr{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.clock{font:13px var(--mono);color:var(--muted);letter-spacing:.08em}
+.badge{font:11px var(--mono);letter-spacing:.14em;text-transform:uppercase;padding:4px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.badge.adm{color:#021019;background:linear-gradient(90deg,var(--cyan),var(--ok));border-color:transparent;box-shadow:0 0 14px rgba(34,228,255,.5)}
+.live{display:flex;align-items:center;gap:8px;color:var(--muted);font:12px var(--mono)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+.dot.on{background:var(--ok);box-shadow:0 0 0 0 rgba(45,255,154,.7);animation:ping 1.8s infinite}
+.dot.off{background:var(--bad);box-shadow:0 0 10px var(--bad)}
+.dot.warn{background:var(--warn);box-shadow:0 0 10px var(--warn)}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(45,255,154,.65)}80%,100%{box-shadow:0 0 0 10px rgba(45,255,154,0)}}
+
+main{max-width:1180px;margin:0 auto;padding:18px 16px 40px}
+.note{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--muted)}
+.note.warn{border-color:var(--warn);color:var(--warn)}
+.alerts{background:rgba(70,10,25,.55);border:1px solid var(--bad);border-radius:12px;padding:12px 16px;margin-bottom:14px;color:#ffb3c0;box-shadow:0 0 22px rgba(255,77,109,.28);animation:alarm 1.6s ease-in-out infinite}
+.alerts div+div{margin-top:4px}
+@keyframes alarm{50%{box-shadow:0 0 34px rgba(255,77,109,.55)}}
+
+/* cards */
+.g12{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;margin-bottom:14px}
+.s3{grid-column:span 3}.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}.s7{grid-column:span 7}.s12{grid-column:span 12}
+@media(max-width:960px){.s3,.s4,.s5,.s6,.s7{grid-column:span 6}}
+@media(max-width:640px){.s3,.s4,.s5,.s6,.s7{grid-column:span 12}.top{padding:12px 14px}}
+.card{position:relative;background:linear-gradient(160deg,var(--panel),rgba(6,14,32,.82));border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 0 0 1px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35),inset 0 0 40px rgba(34,228,255,.03);backdrop-filter:blur(6px)}
+.card::before,.card::after{content:"";position:absolute;width:16px;height:16px;border:2px solid var(--cyan);opacity:.75;pointer-events:none;filter:drop-shadow(0 0 4px var(--cyan))}
+.card::before{top:-1px;left:-1px;border-right:0;border-bottom:0;border-top-left-radius:14px}
+.card::after{bottom:-1px;right:-1px;border-left:0;border-top:0;border-bottom-right-radius:14px}
+.lbl{display:flex;align-items:center;gap:8px;font:600 11px var(--mono);letter-spacing:.2em;text-transform:uppercase;color:var(--cyan);margin-bottom:10px}
+.lbl::before{content:"";width:6px;height:6px;background:var(--cyan);box-shadow:0 0 8px var(--cyan);transform:rotate(45deg)}
+.sub{font-size:12.5px;color:var(--muted)}
+.sub.heat{color:var(--warn)}.sub.block{color:var(--bad)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--muted);font-size:13px;padding:6px 0;border-top:1px solid var(--line2)}
+.row b{color:var(--text);font:500 13px var(--mono);text-align:right}
+.val{font:700 40px/1 var(--mono);letter-spacing:-.02em;text-shadow:0 0 18px currentColor}
+.val.ok{color:var(--ok)}.val.warn{color:var(--warn)}.val.bad{color:var(--bad)}.val.cy{color:var(--cyan)}
+.val.sm{font-size:22px;letter-spacing:0}
+.unit{font:11px var(--mono);color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-top:4px}
+
+/* ring + gauge */
+.ringbox{position:relative;width:min(100%,210px);margin:0 auto 6px;aspect-ratio:1}
+.ringbox svg{width:100%;height:100%;display:block;overflow:visible}
+.ringbox .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.rtrack{fill:none;stroke:rgba(110,170,255,.14);stroke-width:12;stroke-linecap:round}
+.rval{fill:none;stroke-width:12;stroke-linecap:round;transition:stroke-dasharray .9s cubic-bezier(.3,.7,.2,1),stroke .4s;filter:drop-shadow(0 0 7px currentColor)}
+.rval.ok{stroke:var(--ok);color:var(--ok)}.rval.warn{stroke:var(--warn);color:var(--warn)}.rval.bad{stroke:var(--bad);color:var(--bad)}.rval.cy{stroke:var(--cyan);color:var(--cyan)}
+.spin-slow{transform-origin:100px 100px;animation:rot 24s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.gwrap{position:relative;max-width:300px;margin:0 auto}
+.gwrap svg{width:100%;display:block;overflow:visible}
+.gwrap .center{position:absolute;left:0;right:0;bottom:2px;text-align:center}
+.gseg{fill:none;stroke-width:12;opacity:.28}
+.gval{fill:none;stroke-width:12;transition:stroke-dasharray .9s cubic-bezier(.3,.7,.2,1);filter:drop-shadow(0 0 6px currentColor)}
+.needle{transform-origin:100px 100px;transition:transform .9s cubic-bezier(.3,.7,.2,1)}
+.gtxt{fill:var(--muted);font:9px var(--mono)}
+.chip{display:inline-block;font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;padding:3px 12px;border-radius:999px;border:1px solid currentColor;margin-top:6px;background:rgba(0,0,0,.25)}
+.chip.ok{color:var(--ok)}.chip.warn{color:var(--warn)}.chip.bad{color:var(--bad);animation:alarm 1.2s infinite}
+.sen{display:grid;grid-template-columns:70px 1fr auto;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line2);font-size:13px;color:var(--muted)}
+.sen b{font:600 14px var(--mono);color:var(--text);min-width:78px;text-align:right}
+.bar{height:6px;border-radius:3px;background:rgba(110,170,255,.14);overflow:hidden}
+.bar i{display:block;height:100%;width:0;border-radius:3px;background:var(--ok);box-shadow:0 0 8px currentColor;transition:width .8s,background .4s}
+.bar i.l1{background:var(--warn)}.bar i.l2{background:var(--bad)}
+
+/* controls */
+button{font:600 13px system-ui,sans-serif;letter-spacing:.04em;padding:8px 16px;border-radius:9px;border:1px solid var(--cyan);color:#021019;background:linear-gradient(135deg,var(--cyan),#3d9bff);cursor:pointer;transition:filter .15s,transform .1s,box-shadow .2s}
+button:hover:not(:disabled){filter:brightness(1.12);box-shadow:0 0 16px rgba(34,228,255,.55)}
+button:active:not(:disabled){transform:scale(.97)}
+button:disabled{opacity:.35;cursor:default;box-shadow:none}
+.ghost{background:transparent;color:var(--text);border:1px solid var(--line);padding:6px 14px;font-size:12px}
+.ghost:hover:not(:disabled){box-shadow:0 0 14px rgba(34,228,255,.35);border-color:var(--cyan)}
+.set{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+input[type=number],input[type=password],input[type=text]{padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:rgba(2,8,20,.7);color:var(--text);font:14px var(--mono);outline:none}
+input:focus{border-color:var(--cyan);box-shadow:0 0 10px rgba(34,228,255,.4)}
+#dayIn{width:90px}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+.seg.three{grid-template-columns:repeat(3,1fr)}
+.segb{padding:8px 2px;border-radius:9px;border:1px solid var(--line);background:rgba(2,8,20,.55);color:var(--text);font:600 12px system-ui,sans-serif;letter-spacing:.03em;display:flex;align-items:center;justify-content:center;gap:6px}
+.segb:hover:not(:disabled){box-shadow:0 0 12px rgba(34,228,255,.35);border-color:var(--cyan);filter:none}
+.segb.on{background:linear-gradient(135deg,var(--cyan),#3d9bff);color:#021019;border-color:var(--cyan);box-shadow:0 0 16px rgba(34,228,255,.55)}
+.cd{width:8px;height:8px;border-radius:50%;display:inline-block;box-shadow:0 0 6px currentColor}
+body.lock .sw,body.lock .segb,body.lock .adm-only{pointer-events:none;opacity:.45}
+
+.sw{position:relative;width:52px;height:28px;border-radius:14px;border:1px solid var(--line);background:rgba(2,8,20,.7);cursor:pointer;padding:0;flex:none;transition:background .25s,box-shadow .25s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--muted);transition:transform .25s,background .25s}
+.sw.on{background:rgba(255,176,32,.2);border-color:var(--warn);box-shadow:0 0 14px rgba(255,176,32,.5)}
+.sw.on::after{transform:translateX(24px);background:var(--warn);box-shadow:0 0 10px var(--warn)}
+.sw:hover:not(:disabled){filter:none;box-shadow:0 0 14px rgba(34,228,255,.4)}
+.sw.on:hover:not(:disabled){box-shadow:0 0 18px rgba(255,176,32,.7)}
+
+/* heaters */
+.hrow{display:flex;align-items:center;gap:14px;padding:12px 0;border-top:1px solid var(--line2)}
+.hrow .hi{flex:1;min-width:0}
+.hrow b{font-weight:600}
+.coil{width:46px;height:46px;flex:none;overflow:visible}
+.coil path{fill:none;stroke:#3a4a68;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;transition:stroke .4s}
+.coil .wave{opacity:0;stroke:var(--warn);stroke-width:2}
+.hrow.hot .coil path.z{stroke:#ff7a2f;filter:drop-shadow(0 0 6px #ff7a2f) drop-shadow(0 0 14px #ff4d1a);animation:glow 1.1s ease-in-out infinite alternate}
+.hrow.hot .coil .wave{opacity:1;animation:rise 1.6s linear infinite}
+.hrow.hot .coil .wave:nth-of-type(3){animation-delay:.5s}
+.hrow.hot .coil .wave:nth-of-type(4){animation-delay:1s}
+.hrow.ready .coil path.z{stroke:#ffb020;filter:drop-shadow(0 0 4px rgba(255,176,32,.6))}
+.hrow.blk .coil path.z{stroke:var(--bad);filter:drop-shadow(0 0 5px var(--bad))}
+@keyframes glow{from{opacity:.75}to{opacity:1}}
+@keyframes rise{0%{transform:translateY(6px);opacity:0}30%{opacity:.9}100%{transform:translateY(-12px);opacity:0}}
+
+/* fans */
+.fans{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.tile{background:var(--panel2);border:1px solid var(--line2);border-radius:12px;padding:14px;text-align:center}
+.tname{font:600 12px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.fanwrap{position:relative;width:150px;height:150px;margin:0 auto 6px}
+.fanwrap svg{width:100%;height:100%;overflow:visible}
+.fanwrap .hous{fill:rgba(2,8,20,.7);stroke:#2c3d63;stroke-width:3;transition:stroke .4s,filter .4s}
+.fanwrap .blade{fill:rgba(120,140,180,.35);stroke:#4a5e86;stroke-width:1.5;transition:fill .4s,stroke .4s}
+.fanwrap .hub{fill:#1b2a4a;stroke:#4a5e86;stroke-width:2}
+.fanwrap.run.b .hous{stroke:var(--cyan);filter:drop-shadow(0 0 10px rgba(34,228,255,.7))}
+.fanwrap.run.b .blade{fill:rgba(34,228,255,.38);stroke:var(--cyan)}
+.fanwrap.run.b .hub{stroke:var(--cyan);fill:#073040}
+.fanwrap.run.x .hous{stroke:var(--mag);filter:drop-shadow(0 0 10px rgba(224,64,251,.7))}
+.fanwrap.run.x .blade{fill:rgba(224,64,251,.38);stroke:var(--mag)}
+.fanwrap.run.x .hub{stroke:var(--mag);fill:#350a40}
+.air{position:absolute;top:50%;left:100%;width:46px;transform:translateY(-50%);opacity:0;transition:opacity .5s;pointer-events:none}
+.air i{display:block;height:2px;margin:9px 0;border-radius:2px;background:linear-gradient(90deg,var(--c,var(--cyan)),transparent);transform-origin:left;animation:wind 1s linear infinite}
+.air i:nth-child(2){animation-delay:.33s;width:80%}.air i:nth-child(3){animation-delay:.66s;width:60%}
+.fanwrap.run .air{opacity:1}
+.fanwrap.x .air{--c:var(--mag)}
+@keyframes wind{0%{transform:translateX(-14px) scaleX(.2);opacity:0}40%{opacity:1}100%{transform:translateX(18px) scaleX(1);opacity:0}}
+.pill{display:inline-block;font:600 11px var(--mono);letter-spacing:.14em;text-transform:uppercase;padding:3px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:rgba(0,0,0,.25)}
+.pill.on{color:var(--ok);border-color:var(--ok);box-shadow:0 0 12px rgba(45,255,154,.35)}
+
+/* lighting */
+.lightbox{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
+@media(max-width:420px){.lightbox{grid-template-columns:1fr}}
+.lamp{position:relative;height:170px;--lc:#6b7a99}
+.lamp svg{position:relative;z-index:2;width:78px;display:block;margin:0 auto;overflow:visible}
+.lamp .glass{fill:rgba(120,140,180,.12);stroke:#4a5e86;stroke-width:2.5;transition:all .5s}
+.lamp .fil{fill:none;stroke:#4a5e86;stroke-width:2.5;stroke-linecap:round;transition:all .5s}
+.lamp .base{fill:#26365a;stroke:#4a5e86;stroke-width:2}
+.beam{position:absolute;z-index:1;left:50%;top:70px;width:140px;height:100px;transform:translateX(-50%);clip-path:polygon(34% 0,66% 0,100% 100%,0 100%);background:linear-gradient(180deg,color-mix(in srgb,var(--lc) 55%,transparent),transparent);opacity:0;transition:opacity .6s}
+.floor{position:absolute;left:8px;right:8px;bottom:6px;height:6px;border-radius:50%;background:radial-gradient(ellipse,var(--lc),transparent 70%);opacity:0;transition:opacity .6s;filter:blur(2px)}
+.lamp.lit .glass{fill:color-mix(in srgb,var(--lc) 45%,transparent);stroke:var(--lc);filter:drop-shadow(0 0 10px var(--lc)) drop-shadow(0 0 26px var(--lc));animation:flick 3s ease-in-out infinite}
+.lamp.lit .fil{stroke:#fff;filter:drop-shadow(0 0 4px #fff)}
+.lamp.lit .beam,.lamp.lit .floor{opacity:1}
+@keyframes flick{50%{filter:drop-shadow(0 0 7px var(--lc)) drop-shadow(0 0 18px var(--lc))}}
+.hours{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin:8px 0 2px}
+.hours i{height:10px;border-radius:2px;background:rgba(110,170,255,.14)}
+.hours i.on{background:var(--lc,var(--cyan));box-shadow:0 0 6px var(--lc,var(--cyan))}
+.hlab{display:flex;justify-content:space-between;font:10px var(--mono);color:var(--muted)}
+
+/* calendar / system */
+.cal{display:grid;grid-template-columns:40px repeat(7,1fr);gap:5px;margin-top:10px;align-items:center}
+.cal .wk{font:10px var(--mono);color:var(--muted)}
+.cal .c{height:30px;display:flex;align-items:center;justify-content:center;border-radius:7px;font:11px var(--mono);border:1px solid var(--line2);color:var(--muted);background:rgba(2,8,20,.5)}
+.cal .c.past{background:rgba(34,228,255,.18);border-color:rgba(34,228,255,.5);color:var(--cyan)}
+.cal .c.now{background:linear-gradient(135deg,var(--cyan),var(--mag));border-color:transparent;color:#021019;font-weight:800;box-shadow:0 0 16px rgba(34,228,255,.8);animation:glow 1.2s ease-in-out infinite alternate}
+.cal .c.none{border:0;background:transparent}
+.sig{display:inline-flex;align-items:flex-end;gap:2px;height:16px;margin-right:8px;vertical-align:middle}
+.sig i{width:4px;border-radius:1px;background:rgba(110,170,255,.2)}
+.sig i:nth-child(1){height:5px}.sig i:nth-child(2){height:8px}.sig i:nth-child(3){height:12px}.sig i:nth-child(4){height:16px}
+.sig i.on{background:var(--cyan);box-shadow:0 0 5px var(--cyan)}
+
+canvas{width:100%;height:210px;display:block;color:var(--muted);touch-action:pan-y}
+
+dialog{border:1px solid var(--cyan);border-radius:14px;background:#08142c;color:var(--text);padding:20px;width:92%;max-width:350px;box-shadow:0 0 40px rgba(34,228,255,.3)}
+dialog::backdrop{background:rgba(2,6,16,.7);backdrop-filter:blur(3px)}
+.fld{width:100%;margin:6px 0}
+.msg{font-size:13px;color:var(--warn);margin-top:6px;min-height:18px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);max-width:92%;padding:10px 18px;border-radius:10px;background:#0b1b3a;border:1px solid var(--cyan);color:var(--text);font:13px var(--mono);opacity:0;pointer-events:none;transition:opacity .2s;z-index:20;box-shadow:0 0 20px rgba(34,228,255,.35)}
+.toast.show{opacity:1}.toast.ok{border-color:var(--ok);box-shadow:0 0 20px rgba(45,255,154,.4)}.toast.bad{border-color:var(--bad);box-shadow:0 0 20px rgba(255,77,109,.4)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style></head><body class="lock">
+<header class="top">
+ <div class="brand">
+  <svg class="logo" viewBox="0 0 48 48" fill="none" stroke="#22e4ff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M24 4l17 10v20L24 44 7 34V14z"/><path d="M24 14c-5 0-8 3.5-8 8 0 3 1.5 5 3.5 6.5V32h9v-3.5c2-1.5 3.5-3.5 3.5-6.5 0-4.5-3-8-8-8z" stroke="#e040fb"/><circle cx="21" cy="21" r="1" fill="#22e4ff"/></svg>
+  <div><h1>Smart poultry brooder</h1><div class="tag">REMOTE CONTROL CENTER</div></div>
+ </div>
+ <div class="hr">
+  <span id="clk" class="clock">--:--:--</span>
+  <span id="role" class="badge">Viewer</span>
+  <button id="authBtn" class="ghost" onclick="authClick()">Admin login</button>
+  <div class="live"><span id="dot" class="dot"></span><span id="status">Connecting</span></div>
+ </div>
+</header>
+<main>
+<div id="vnote" class="note">Viewer mode: you can watch the readings. Enter the admin access key to control the brooder from here.</div>
+<div id="rnote" class="note warn" hidden></div>
+<div id="alerts" class="alerts" hidden></div>
+
+<!-- row 1: temperature, ammonia, age -->
+<section class="g12">
+ <div class="card s4"><div class="lbl">Temperature</div>
+  <div class="ringbox">
+   <svg viewBox="0 0 200 200">
+    <circle class="spin-slow" cx="100" cy="100" r="94" fill="none" stroke="rgba(34,228,255,.25)" stroke-width="1" stroke-dasharray="2 8"/>
+    <circle class="rtrack" cx="100" cy="100" r="80" pathLength="100" stroke-dasharray="75 100" transform="rotate(135 100 100)"/>
+    <circle id="tring" class="rval cy" cx="100" cy="100" r="80" pathLength="100" stroke-dasharray="0 100" transform="rotate(135 100 100)"/>
+    <g id="tset" transform="rotate(135 100 100)"><line x1="164" y1="100" x2="182" y2="100" stroke="#ffd23f" stroke-width="3" stroke-linecap="round" style="filter:drop-shadow(0 0 4px #ffd23f)"/></g>
+   </svg>
+   <div class="center"><div id="tavg" class="val cy">--</div><div class="unit">&deg;C average</div></div>
+  </div>
+  <div class="row"><span>Target</span><b><span id="sp">--</span> &deg;C</b></div>
+  <div class="row"><span>Sensor 1</span><b><span id="t1">--</span> &deg;C</b></div>
+  <div class="row"><span>Sensor 2</span><b><span id="t2">--</span> &deg;C</b></div>
+ </div>
+
+ <div class="card s5"><div class="lbl">Ammonia (NH&#8323;)</div>
+  <div class="gwrap">
+   <svg id="gsvg" viewBox="0 0 200 118">
+    <path id="gA" class="gseg" d="M20 100 A80 80 0 0 1 180 100" pathLength="100" stroke="#2dff9a"/>
+    <path id="gB" class="gseg" d="M20 100 A80 80 0 0 1 180 100" pathLength="100" stroke="#ffb020"/>
+    <path id="gC" class="gseg" d="M20 100 A80 80 0 0 1 180 100" pathLength="100" stroke="#ff4d6d"/>
+    <path id="gV" class="gval" d="M20 100 A80 80 0 0 1 180 100" pathLength="100" stroke-dasharray="0 100" style="stroke:var(--ok);color:var(--ok)"/>
+    <g id="gN" class="needle" style="transform:rotate(0deg)"><line x1="100" y1="100" x2="38" y2="100" stroke="#e6f1ff" stroke-width="2.5" stroke-linecap="round" style="filter:drop-shadow(0 0 4px #e6f1ff)"/></g>
+    <circle cx="100" cy="100" r="6" fill="#08142c" stroke="#e6f1ff" stroke-width="2"/>
+    <text class="gtxt" x="20" y="114" text-anchor="middle">0</text>
+    <text id="gMax" class="gtxt" x="180" y="114" text-anchor="middle">35</text>
+   </svg>
+   <div class="center"></div>
+  </div>
+  <div style="text-align:center;margin-top:-4px">
+   <span id="nh3" class="val ok">--</span><span class="unit" style="display:inline;margin-left:6px">ppm</span>
+   <div><span id="nlv" class="chip ok">--</span></div>
+   <div id="nth" class="sub" style="margin-top:6px">--</div>
+  </div>
+  <div class="sen" style="margin-top:10px"><span>Sensor 1</span><div class="bar"><i id="n1b"></i></div><b id="n1">--</b></div>
+  <div class="sen"><span>Sensor 2</span><div class="bar"><i id="n2b"></i></div><b id="n2">--</b></div>
+  <div class="row"><span>Exhaust fan</span><b id="exs">--</b></div>
+ </div>
+
+ <div class="card s3"><div class="lbl">Age of chicks</div>
+  <div class="ringbox" style="width:min(100%,170px)">
+   <svg viewBox="0 0 200 200">
+    <circle class="rtrack" cx="100" cy="100" r="80" pathLength="100" stroke-dasharray="100 100" transform="rotate(-90 100 100)"/>
+    <circle id="dring" class="rval" style="stroke:var(--mag);color:var(--mag)" cx="100" cy="100" r="80" pathLength="100" stroke-dasharray="0 100" transform="rotate(-90 100 100)"/>
+   </svg>
+   <div class="center"><div class="unit" style="margin:0 0 2px">Day</div><div id="day" class="val" style="color:var(--text)">--</div><div class="unit">of 60</div></div>
+  </div>
+  <div class="set adm-only" style="justify-content:center"><input id="dayIn" type="number" min="1" max="60" inputmode="numeric"><button onclick="setDay()">Set day</button></div>
+ </div>
+</section>
+
+<!-- row 2: fans -->
+<section class="card" style="margin-bottom:14px"><div class="lbl">Fans &amp; airflow</div>
+ <div class="fans">
+  <div class="tile">
+   <div class="tname">Blower fan</div>
+   <div id="fwB" class="fanwrap b"><svg viewBox="0 0 120 120"><circle class="hous" cx="60" cy="60" r="56"/><g id="fanB"></g><circle class="hub" cx="60" cy="60" r="9"/></svg><div class="air"><i></i><i></i><i></i></div></div>
+   <div id="bl" class="pill">Off</div>
+   <div class="lbl" style="justify-content:center;margin:12px 0 0;font-size:10px">Blower speed</div>
+   <div class="seg">
+    <button id="bm0" class="segb" onclick="sendCmd('blw',0,'Blower: Auto')">Auto</button>
+    <button id="bm1" class="segb" onclick="sendCmd('blw',1,'Blower: Low')">Low</button>
+    <button id="bm2" class="segb" onclick="sendCmd('blw',2,'Blower: Medium')">Medium</button>
+    <button id="bm3" class="segb" onclick="sendCmd('blw',3,'Blower: High')">High</button></div>
+   <div id="bs" class="sub" style="margin-top:8px">--</div>
+  </div>
+  <div class="tile">
+   <div class="tname">Exhaust fan</div>
+   <div id="fwX" class="fanwrap x"><svg viewBox="0 0 120 120"><circle class="hous" cx="60" cy="60" r="56"/><g id="fanX"></g><circle class="hub" cx="60" cy="60" r="9"/></svg><div class="air"><i></i><i></i><i></i></div></div>
+   <div id="ex" class="pill">Off</div>
+   <div class="lbl" style="justify-content:center;margin:12px 0 0;font-size:10px">Exhaust fan control</div>
+   <div class="seg three">
+    <button id="xm0" class="segb" onclick="sendCmd('exh',0,'Exhaust: Auto')">Auto</button>
+    <button id="xm1" class="segb" onclick="sendCmd('exh',1,'Exhaust: On')">On</button>
+    <button id="xm2" class="segb" onclick="sendCmd('exh',2,'Exhaust: Off')">Off</button></div>
+   <div id="xs" class="sub" style="margin-top:8px">--</div>
+  </div>
+ </div>
+</section>
+
+<!-- row 3: heating + lighting -->
+<section class="g12">
+ <div class="card s6"><div class="lbl">Heating automation</div><div id="hstate" class="val sm">--</div>
+  <div id="hdesc" class="sub" style="margin-top:6px">--</div>
+  <div class="set adm-only">
+   <button id="hStart" onclick="$('hdelay').textContent=LAST?LAST.hdelay:10;$('dlgStart').showModal()">Start heating</button>
+   <button id="hStop" class="ghost" onclick="sendCmd('heat',0,'Stop heating')">Stop heating</button></div>
+  <div id="hr1" class="hrow" style="margin-top:12px">
+   <svg class="coil" viewBox="0 0 48 48"><path class="z" d="M4 38 L12 26 L20 38 L28 26 L36 38 L44 26"/><path class="wave" d="M10 20 q3 -4 0 -8"/><path class="wave" d="M24 20 q3 -4 0 -8"/><path class="wave" d="M38 20 q3 -4 0 -8"/></svg>
+   <div class="hi"><b>Heater 1</b><div id="h1s" class="sub">Stopped</div></div>
+   <button id="b1" class="sw" onclick="toggleH(1)" aria-label="Heater 1 switch"></button></div>
+  <div id="hr2" class="hrow">
+   <svg class="coil" viewBox="0 0 48 48"><path class="z" d="M4 38 L12 26 L20 38 L28 26 L36 38 L44 26"/><path class="wave" d="M10 20 q3 -4 0 -8"/><path class="wave" d="M24 20 q3 -4 0 -8"/><path class="wave" d="M38 20 q3 -4 0 -8"/></svg>
+   <div class="hi"><b>Heater 2</b><div id="h2s" class="sub">Stopped</div></div>
+   <button id="b2" class="sw" onclick="toggleH(2)" aria-label="Heater 2 switch"></button></div>
+ </div>
+
+ <div class="card s6"><div class="lbl">Brooder lighting</div>
+  <div class="lightbox">
+   <div id="lamp" class="lamp">
+    <svg viewBox="0 0 80 100"><rect class="base" x="28" y="76" width="24" height="14" rx="3"/><path class="glass" d="M40 6C24 6 14 18 14 32c0 11 6 17 11 24 2 3 3 6 3 10v8h24v-8c0-4 1-7 3-10 5-7 11-13 11-24C66 18 56 6 40 6z"/><path class="fil" d="M32 70V50l8 8 8-8v20"/></svg>
+    <div class="beam"></div><div class="floor"></div>
+   </div>
+   <div>
+    <div id="lstate" class="val sm">--</div>
+    <div class="row" style="margin-top:8px"><span>Colour for this age</span><b id="lcol">--</b></div>
+    <div class="row"><span>Schedule</span><b id="lsch">--</b></div>
+    <div class="row"><span>Brightness</span><b id="lpct">--</b></div>
+    <div class="row"><span>Next change</span><b id="lnext">--</b></div>
+    <div class="row"><span>Clock</span><b id="lclk">--</b></div>
+   </div>
+  </div>
+  <div id="hours" class="hours"></div>
+  <div class="hlab"><span>Light hours per day</span><span id="hlab">--</span></div>
+  <div class="seg">
+   <button id="lm0" class="segb" onclick="sendCmd('lgt',0,'Lights: Auto')">Auto</button>
+   <button id="lm1" class="segb" onclick="sendCmd('lgt',1,'Lights: Off')">Off</button>
+   <button id="lm2" class="segb" onclick="sendCmd('lgt',2,'Lights: Green')"><i class="cd" style="background:#2dff9a;color:#2dff9a"></i>Green</button>
+   <button id="lm3" class="segb" onclick="sendCmd('lgt',3,'Lights: Blue')"><i class="cd" style="background:#4aa3ff;color:#4aa3ff"></i>Blue</button></div>
+ </div>
+</section>
+
+<!-- row 4: calendar + system -->
+<section class="g12">
+ <div class="card s7"><div class="lbl">Brooding calendar</div>
+  <div id="calsum" class="sub">--</div>
+  <div id="cal" class="cal"></div>
+  <div class="sub" style="margin-top:8px">Filled = days passed, glowing = today</div>
+ </div>
+ <div class="card s5"><div class="lbl">System</div>
+  <div class="row"><span>Last update</span><b id="age">--</b></div>
+  <div class="row"><span>Brooder uptime</span><b id="up">--</b></div>
+  <div class="row"><span>Wi-Fi signal</span><b><span id="sig" class="sig"><i></i><i></i><i></i><i></i></span><span id="net">--</span></b></div>
+ </div>
+</section>
+
+<!-- row 5: charts -->
+<section class="g12">
+ <div class="card s6"><div class="lbl">Temperature, last 24 hours (&deg;C)</div><canvas id="cT"></canvas></div>
+ <div class="card s6"><div class="lbl">Ammonia level, last 24 hours (ppm)</div><canvas id="cN"></canvas></div>
+</section>
+</main>
+
+<dialog id="dlgLogin"><form onsubmit="event.preventDefault();doLogin()">
+ <div class="lbl">Admin access key</div>
+ <input id="keyIn" class="fld" type="password" placeholder="Paste the access key" autocomplete="off">
+ <label class="sub"><input id="remember" type="checkbox"> Remember on this device</label>
+ <div id="loginMsg" class="msg"></div>
+ <div class="set"><button type="submit">Unlock controls</button><button type="button" class="ghost" onclick="$('dlgLogin').close()">Cancel</button></div>
+</form></dialog>
+
+<dialog id="dlgStart"><form onsubmit="event.preventDefault();$('dlgStart').close();sendCmd('heat',1,'Start heating')">
+ <div class="lbl">Start heating?</div>
+ <div class="sub" style="margin-bottom:8px">The blower starts first. About <span id="hdelay">10</span> seconds later the heaters begin their automatic on/off cycle. Make sure it is safe to heat the brooder.</div>
+ <div class="set"><button type="submit">Start heating</button><button type="button" class="ghost" onclick="$('dlgStart').close()">Cancel</button></div>
+</form></dialog>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const DB   = "https://smart-poultry-brooder-default-rtdb.asia-southeast1.firebasedatabase.app";
+const PATH = "brooder_k7x2q9";                 // must match the rules and the ESP32 sketch
+const MAXAGE = 90;                             // seconds without an update before "offline"
+
+// Ammonia levels. Keep NH3_WARN in step with NH3_EXHAUST_OFF_PPM in the sketch
+// (the Danger level uses the value the brooder sends, which is NH3_EXHAUST_ON_PPM).
+const NH3_WARN = 15, HYST = 1;
+const WORDS = ["Good", "Warning", "Danger"], WCOL = ["ok", "warn", "bad"];
+const NLV = {a: 0, s1: 0, s2: 0};
+function stepLv(prev, v, danger) {
+  if (typeof v !== "number") return prev;
+  let l = prev;
+  if (v >= danger) l = 2;
+  else if (v >= NH3_WARN && l === 0) l = 1;
+  if (l === 2 && v < danger - HYST) l = 1;
+  if (l === 1 && v < NH3_WARN - HYST) l = 0;
+  return l;
+}
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const f = (v, d = 1) => (typeof v === "number" && v > -90) ? v.toFixed(d) : "--";
+const ago = s => s < 90 ? Math.round(s) + " s" : s < 5400 ? Math.round(s / 60) + " min" : (s / 3600).toFixed(1) + " h";
+const hhmm = ms => new Date(ms).toLocaleTimeString([], {hour: "numeric", minute: "2-digit", hour12: true});
+
+let KEY = sessionStorage.getItem("bkey") || localStorage.getItem("bkey") || "";
+let ADMIN = false, LAST = null, OFFLINE = true, PENDING = false, BUSY = false;
+const E = {1: false, 2: false};
+
+function setStatus(kind, text) { $("dot").className = "dot " + kind; $("status").textContent = text; }
+function toast(msg, kind) {
+  const t = $("toast");
+  t.textContent = msg; t.className = "toast show " + (kind || "");
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = "toast", 4500);
+}
+function lockUI() {
+  const canControl = ADMIN && LAST && LAST.rc && !OFFLINE && !PENDING;
+  document.body.classList.toggle("lock", !canControl);
+}
+setInterval(() => { $("clk").textContent = new Date().toLocaleTimeString([], {hour12: false}); }, 1000);
+
+// ---------- animated fans (spin up and coast down like the real thing) ----------
+const FAN = {B: {el: null, cur: 0, tgt: 0, ang: 0}, X: {el: null, cur: 0, tgt: 0, ang: 0}};
+function buildFan(id, n, w) {
+  // n curved blades around the hub (120x120 box, centre 60,60)
+  let h = "";
+  for (let i = 0; i < n; i++) {
+    h += '<path class="blade" transform="rotate(' + (360 / n * i) + ' 60 60)" d="M60 60 C' + (60 - w) + ' 44 ' + (60 - w) + ' 18 62 10 C' + (60 + w * .9) + ' 22 ' + (60 + w * .6) + ' 46 60 60Z"/>';
+  }
+  $(id).innerHTML = h;
+}
+buildFan("fanB", 7, 14);
+buildFan("fanX", 4, 20);
+FAN.B.el = $("fanB"); FAN.X.el = $("fanX");
+let lastT = 0;
+function tick(t) {
+  const dt = Math.min(.1, (t - lastT) / 1000 || 0); lastT = t;
+  for (const k in FAN) {
+    const o = FAN[k];
+    o.cur += (o.tgt - o.cur) * Math.min(1, dt * 1.6);
+    if (o.tgt === 0 && o.cur < 2) o.cur = 0;
+    if (o.cur) { o.ang = (o.ang + o.cur * dt) % 360; o.el.setAttribute("transform", "rotate(" + o.ang.toFixed(1) + " 60 60)"); }
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ---------- data ----------
+async function fetchLive() {
+  const r = await fetch(`${DB}/${PATH}/live.json`, {cache: "no-store"});
+  const d = await r.json();
+  if (!d || typeof d !== "object" || d.error) return null;
+  for (const k of ["tavg", "t1", "t2"]) if (typeof d[k] === "number" && d[k] <= -90) d[k] = null;
+  return d;
+}
+async function poll() {
+  if (document.hidden || BUSY || PENDING) return;
+  BUSY = true;
+  try {
+    const d = await fetchLive();
+    if (!d) { setStatus("warn", "No data yet: waiting for the brooder"); OFFLINE = true; lockUI(); }
+    else render(d);
+  } catch (e) { setStatus("off", "Cannot reach the database"); OFFLINE = true; lockUI(); }
+  BUSY = false;
+}
+
+// ---------- rendering ----------
+function setPill(id, on, txt) { $(id).className = "pill" + (on ? " on" : ""); $(id).textContent = txt; }
+function setSw(id, on) { $(id).className = "sw" + (on ? " on" : ""); }
+function heaterLine(d, n) {
+  const en = d["e" + n], on = d["h" + n], dem = d["d" + n], cyc = d["c" + n];
+  if (d.hrun === 0) return ["Stopped", ""];
+  if (d.hrun === 1) return ["Waiting for the blower", ""];
+  if (!en) return ["Switched off", ""];
+  if (d.aHot || d.tavg === null) return ["Blocked by safety cutoff", "block"];
+  if (on) return ["Heating now", "heat"];
+  if (dem && !cyc) return ["Resting (cycle break)", ""];
+  return ["On, waiting for temperature", ""];
+}
+function lightHex(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("green")) return "#2dff9a";
+  if (n.includes("blue")) return "#4aa3ff";
+  if (n.includes("red")) return "#ff4d4d";
+  if (n.includes("purple") || n.includes("violet")) return "#b58cff";
+  if (n.includes("white")) return "#f2f6ff";
+  if (n.includes("warm") || n.includes("yellow") || n.includes("amber") || n.includes("orange")) return "#ffc24a";
+  return "#22e4ff";
+}
+function setRing(id, frac, cls) {
+  const e = $(id); e.setAttribute("stroke-dasharray", (clamp(frac, 0, 1) * (id === "tring" ? 75 : 100)).toFixed(1) + " 100");
+  if (cls) e.setAttribute("class", "rval " + cls);
+}
+
+// Ammonia half-gauge with real ppm value
+function setGauge(v, dg, lvl, warm) {
+  const gmax = Math.max(35, Math.ceil(dg * 1.4));
+  const gw = clamp(NH3_WARN / gmax * 100, 0, 100), aw = clamp((dg - NH3_WARN) / gmax * 100, 0, 100 - gw), rw = 100 - gw - aw;
+  $("gA").setAttribute("stroke-dasharray", gw + " 100");
+  $("gB").setAttribute("stroke-dasharray", "0 " + gw + " " + aw + " 100");
+  $("gC").setAttribute("stroke-dasharray", "0 " + (gw + aw) + " " + rw + " 100");
+  $("gMax").textContent = gmax;
+  const frac = (warm || typeof v !== "number") ? 0 : clamp(v / gmax, 0, 1);
+  $("gV").setAttribute("stroke-dasharray", (frac * 100).toFixed(1) + " 100");
+  const c = "var(--" + WCOL[lvl] + ")";
+  $("gV").style.stroke = c; $("gV").style.color = c;
+  $("gN").style.transform = "rotate(" + (frac * 180).toFixed(1) + "deg)";
+}
+
+// Brooding calendar: one row per week, days passed are filled, today is ringed
+let calDay = -1;
+function renderCal(day) {
+  if (typeof day !== "number" || day < 1 || day === calDay) return;
+  calDay = day;
+  const total = Math.min(60, Math.max(42, Math.ceil(day / 7) * 7));
+  const weeks = Math.ceil(total / 7);
+  let h = "";
+  for (let w = 0; w < weeks; w++) {
+    h += '<div class="wk">Wk ' + (w + 1) + "</div>";
+    for (let i = 1; i <= 7; i++) {
+      const n = w * 7 + i;
+      if (n > total) { h += '<div class="c none"></div>'; continue; }
+      h += '<div class="c' + (n < day ? " past" : n === day ? " now" : "") + '">' + n + "</div>";
+    }
+  }
+  $("cal").innerHTML = h;
+  const done = day - 1;
+  $("calsum").textContent = "Day " + day + ": " + done + " day" + (done === 1 ? "" : "s") + " completed";
+}
+
+function render(d) {
+  LAST = d;
+  const age = (Date.now() - d.ts) / 1000;
+  OFFLINE = age > MAXAGE;
+  if (OFFLINE) setStatus("off", "Brooder offline? Last update " + ago(Math.max(age, 0)) + " ago");
+  else setStatus("on", "Live");
+  $("age").textContent = age >= 0 ? ago(age) + " ago" : "just now";
+
+  // role + notes
+  $("role").textContent = ADMIN ? "Admin" : "Viewer";
+  $("role").className = "badge" + (ADMIN ? " adm" : "");
+  $("authBtn").textContent = ADMIN ? "Log out" : "Admin login";
+  $("vnote").hidden = ADMIN;
+  const rn = $("rnote");
+  if (ADMIN && !d.rc) { rn.hidden = false; rn.textContent = "Remote control is switched off on the brooder. You can still watch the readings."; }
+  else if (ADMIN && OFFLINE) { rn.hidden = false; rn.textContent = "The brooder is offline, so commands cannot be delivered."; }
+  else rn.hidden = true;
+
+  // temperature
+  const dev = d.tavg === null ? null : Math.abs(d.tavg - d.setpoint);
+  const tcls = dev === null ? "bad" : dev <= 1 ? "ok" : "warn";
+  $("tavg").textContent = f(d.tavg);
+  $("tavg").className = "val " + tcls;
+  $("sp").textContent = f(d.setpoint); $("t1").textContent = f(d.t1); $("t2").textContent = f(d.t2);
+  setRing("tring", d.tavg === null ? 0 : (d.tavg - 15) / 30, tcls);
+  if (typeof d.setpoint === "number") $("tset").setAttribute("transform", "rotate(" + (135 + 270 * clamp((d.setpoint - 15) / 30, 0, 1)).toFixed(1) + " 100 100)");
+
+  // ammonia: real ppm readings + level word
+  const dg = (typeof d.nh3on === "number") ? d.nh3on : 25;
+  $("nth").textContent = "Warning from " + NH3_WARN + " ppm · Danger from " + dg + " ppm";
+  const gmax = Math.max(35, Math.ceil(dg * 1.4));
+  if (d.warm) {
+    NLV.a = NLV.s1 = NLV.s2 = 0;
+    $("nh3").textContent = "Warming up"; $("nh3").className = "val sm warn";
+    $("nlv").textContent = "Sensor warming"; $("nlv").className = "chip warn";
+    $("n1").textContent = "Warming up"; $("n2").textContent = "Warming up";
+    $("n1b").style.width = "0"; $("n2b").style.width = "0";
+    setGauge(null, dg, 1, true);
+  } else {
+    NLV.a = stepLv(NLV.a, d.nh3, dg);
+    NLV.s1 = stepLv(NLV.s1, d.nh3_1, dg);
+    NLV.s2 = stepLv(NLV.s2, d.nh3_2, dg);
+    $("nh3").textContent = f(d.nh3); $("nh3").className = "val " + WCOL[NLV.a];
+    $("nlv").textContent = WORDS[NLV.a]; $("nlv").className = "chip " + WCOL[NLV.a];
+    $("n1").textContent = f(d.nh3_1) + " ppm"; $("n2").textContent = f(d.nh3_2) + " ppm";
+    $("n1b").style.width = (typeof d.nh3_1 === "number" ? clamp(d.nh3_1 / gmax, 0, 1) * 100 : 0) + "%"; $("n1b").className = "l" + NLV.s1;
+    $("n2b").style.width = (typeof d.nh3_2 === "number" ? clamp(d.nh3_2 / gmax, 0, 1) * 100 : 0) + "%"; $("n2b").className = "l" + NLV.s2;
+    setGauge(d.nh3, dg, NLV.a, false);
+  }
+  $("exs").textContent = d.exhaust ? "Running" : "Off";
+  $("exs").style.color = d.exhaust ? "var(--ok)" : "";
+
+  // heating
+  E[1] = d.e1; E[2] = d.e2;
+  for (const n of [1, 2]) {
+    const r = heaterLine(d, n);
+    $("h" + n + "s").textContent = r[0];
+    $("h" + n + "s").className = "sub" + (r[1] ? " " + r[1] : "");
+    setSw("b" + n, d["e" + n] && d.hrun !== 0);
+    $("b" + n).disabled = (d.hrun === 0);
+    $("hr" + n).className = "hrow" + (r[1] === "heat" ? " hot" : r[1] === "block" ? " blk" : (d["e" + n] && d.hrun === 2) ? " ready" : "");
+  }
+  if (d.hrun === 0) { $("hstate").textContent = "Heating stopped"; $("hstate").className = "val sm"; $("hstate").style.color = "var(--muted)"; }
+  else if (d.hrun === 1) { $("hstate").textContent = "Starting: blower first (" + d.hwait + " s)"; $("hstate").className = "val sm warn"; $("hstate").style.color = ""; }
+  else { $("hstate").textContent = "Heating automatic"; $("hstate").className = "val sm ok"; $("hstate").style.color = ""; }
+  $("hdesc").textContent = "Each heater runs " + d.hon + " s on, " + d.hoff + " s off, staggered. The thermostat decides when heat is needed.";
+  $("hStart").disabled = (d.hrun !== 0);
+  $("hStop").disabled = (d.hrun === 0);
+
+  // fans (animated)
+  const bOn = d.bpct > 0;
+  FAN.B.tgt = bOn ? 140 + d.bpct * 8 : 0;
+  FAN.X.tgt = d.exhaust ? 760 : 0;
+  $("fwB").className = "fanwrap b" + (bOn ? " run" : "");
+  $("fwX").className = "fanwrap x" + (d.exhaust ? " run" : "");
+  setPill("bl", bOn, bOn ? "Running · " + d.bpct + "%" : "Off");
+  setPill("ex", d.exhaust, d.exhaust ? "Running" : "Off");
+  for (let i = 0; i < 4; i++) $("bm" + i).className = "segb" + (d.bsm === i ? " on" : "");
+  const nm = ["", "Low", "Medium", "High"];
+  if (d.bpct <= 0 && d.blv === 0) { $("bs").textContent = (d.bsm === 0 ? "Auto" : "Manual: " + nm[d.bsm]) + ". Blower is off now; it runs when heating is on."; $("bs").className = "sub"; }
+  else {
+    const ramp = d.bramp === 1 ? ", speeding up" : d.bramp === 2 ? ", slowing down" : "";
+    $("bs").textContent = (d.bsm === 0 ? "Auto: " : "Manual: ") + nm[d.blv] + " (" + d.bpct + "%)" + ramp;
+    $("bs").className = "sub" + (d.bramp ? " heat" : "");
+  }
+  for (let i = 0; i < 3; i++) $("xm" + i).className = "segb" + (d.exm === i ? " on" : "");
+  if (d.exm === 0) { $("xs").textContent = "Auto: runs when ammonia is in the danger level"; $("xs").className = "sub"; }
+  else if (d.exm === 1) { $("xs").textContent = "Manual: running until you change it"; $("xs").className = "sub heat"; }
+  else { $("xs").textContent = "Manual: off" + (d.exrev ? ", back to auto in " + d.exrev + " min" : ""); $("xs").className = "sub" + (d.aNh3 ? " block" : ""); }
+
+  // lighting (with live colour)
+  const hex = lightHex(d.lcol);
+  const lit = d.lmode !== 1 && !!d.lon;
+  $("lamp").style.setProperty("--lc", lit ? hex : "#6b7a99");
+  $("lamp").className = "lamp" + (lit ? " lit" : "");
+  $("hours").style.setProperty("--lc", hex);
+  for (let i = 0; i < 4; i++) $("lm" + i).className = "segb" + (d.lmode === i ? " on" : "");
+  $("lstate").textContent = d.lmode === 1 ? "Lights off (manual)" : d.lon ? d.lcol + " light on" : "Dark period";
+  $("lstate").className = "val sm";
+  $("lstate").style.color = lit ? hex : "var(--muted)";
+  $("lcol").textContent = d.lcol;
+  $("lcol").style.color = hex;
+  $("lsch").textContent = d.lhrs >= 24 ? "24 h light" : d.lhrs + " h light, " + (24 - d.lhrs) + " h dark";
+  $("lpct").textContent = d.lpct + " %";
+  $("lnext").textContent = d.lmode ? "Manual, auto in " + d.lrev + " min" : (d.lnext || "--");
+  $("lclk").textContent = d.clk === 2 ? d.clock : d.clk === 1 ? d.clock + " (approximate)" : "Not set, lights stay on";
+  $("lclk").style.color = d.clk === 2 ? "" : "var(--warn)";
+  let hh = ""; for (let i = 0; i < 24; i++) hh += "<i" + (i < Math.min(24, d.lhrs || 0) ? ' class="on"' : "") + "></i>";
+  $("hours").innerHTML = hh; $("hlab").textContent = (d.lhrs || 0) + " / 24 h";
+
+  // age + calendar + system
+  $("day").textContent = d.day;
+  setRing("dring", d.day / 60);
+  renderCal(d.day);
+  if (document.activeElement.id !== "dayIn") $("dayIn").value = d.day;
+  $("up").textContent = Math.floor(d.up / 3600) + " h " + Math.floor(d.up % 3600 / 60) + " min";
+  $("net").textContent = d.rssi ? d.rssi + " dBm" : "--";
+  const bars = !d.rssi ? 0 : d.rssi > -60 ? 4 : d.rssi > -70 ? 3 : d.rssi > -80 ? 2 : 1;
+  [...$("sig").children].forEach((el, i) => el.className = i < bars ? "on" : "");
+
+  const al = [];
+  if (d.aTemp) al.push("Temperature sensor fault: check the sensors (both failing turns the heaters off)");
+  if (d.aHot) al.push("Over-temperature: heaters cut off");
+  if (d.aNh3) al.push(d.exm === 2 ? "High ammonia: exhaust fan is forced off" : "High ammonia: exhaust fan is running");
+  $("alerts").hidden = al.length === 0;
+  $("alerts").innerHTML = al.map(t => "<div>" + t + "</div>").join("");
+  lockUI();
+}
+
+// ---------- charts (24 h history, one point every 5 minutes) ----------
+const CH = {};
+function setChart(id, pts, o) { CH[id] = Object.assign({pts, hover: -1}, o); drawChart(id); }
+function drawChart(id) {
+  const o = CH[id]; if (!o) return;
+  const c = $(id), dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  if (!w) return;
+  c.width = w * dpr; c.height = h * dpr;
+  const x = c.getContext("2d"); x.scale(dpr, dpr); x.clearRect(0, 0, w, h);
+  const col = getComputedStyle(c).color, pts = o.pts;
+  const L = 40, R = 10, T = 12, B = 24, pw = w - L - R, ph = h - T - B;
+  x.font = "11px ui-monospace,Consolas,monospace";
+  if (pts.length < 2) { x.fillStyle = col; x.fillText("Collecting data (one point every 5 minutes)...", 12, 28); o.geo = null; return; }
+  let mn = Math.min(...pts.map(p => p.y)), mx = Math.max(...pts.map(p => p.y));
+  (o.refs || []).forEach(r => { mn = Math.min(mn, r.v); mx = Math.max(mx, r.v); });
+  if (o.floor0) mn = Math.min(mn, 0);
+  if (mx - mn < 1) { const m = (mx + mn) / 2; mn = m - .5; mx = m + .5; }
+  const pad = (mx - mn) * .12; if (!o.floor0) mn -= pad; mx += pad;
+  const t0 = pts[0].x, t1 = pts[pts.length - 1].x, span = Math.max(t1 - t0, 1);
+  const X = t => L + pw * (t - t0) / span, Y = v => T + ph * (1 - (v - mn) / (mx - mn));
+  // grid + labels
+  x.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = T + ph * i / 4;
+    x.strokeStyle = "rgba(110,170,255,.14)"; x.beginPath(); x.moveTo(L, y); x.lineTo(w - R, y); x.stroke();
+    x.fillStyle = col; x.fillText((mx - (mx - mn) * i / 4).toFixed(1), 4, y + 4);
+  }
+  x.fillStyle = col; x.fillText(hhmm(t0), L, h - 6);
+  const e = hhmm(t1); x.fillText(e, w - R - x.measureText(e).width, h - 6);
+  // reference / threshold lines
+  (o.refs || []).forEach(r => {
+    const y = Y(r.v); x.save(); x.setLineDash([5, 5]); x.strokeStyle = r.c; x.globalAlpha = .8; x.beginPath(); x.moveTo(L, y); x.lineTo(w - R, y); x.stroke(); x.restore();
+    x.fillStyle = r.c; x.fillText(r.t, w - R - x.measureText(r.t).width - 2, y - 4);
+  });
+  // area + glowing line
+  const g = x.createLinearGradient(0, T, 0, T + ph);
+  g.addColorStop(0, o.color + "66"); g.addColorStop(1, o.color + "00");
+  x.beginPath();
+  pts.forEach((p, i) => i ? x.lineTo(X(p.x), Y(p.y)) : x.moveTo(X(p.x), Y(p.y)));
+  x.lineTo(X(t1), T + ph); x.lineTo(X(t0), T + ph); x.closePath(); x.fillStyle = g; x.fill();
+  x.save(); x.shadowColor = o.color; x.shadowBlur = 10; x.strokeStyle = o.color; x.lineWidth = 2; x.lineJoin = "round"; x.beginPath();
+  pts.forEach((p, i) => i ? x.lineTo(X(p.x), Y(p.y)) : x.moveTo(X(p.x), Y(p.y)));
+  x.stroke(); x.restore();
+  // latest point
+  const lp = pts[pts.length - 1];
+  x.fillStyle = "#fff"; x.beginPath(); x.arc(X(lp.x), Y(lp.y), 3.5, 0, 7); x.fill();
+  // hover readout
+  o.geo = {L, pw, t0, span};
+  if (o.hover >= 0 && pts[o.hover]) {
+    const p = pts[o.hover], px = X(p.x), py = Y(p.y);
+    x.strokeStyle = "rgba(230,241,255,.45)"; x.beginPath(); x.moveTo(px, T); x.lineTo(px, T + ph); x.stroke();
+    x.fillStyle = o.color; x.beginPath(); x.arc(px, py, 4.5, 0, 7); x.fill();
+    const txt = hhmm(p.x) + "  " + p.y.toFixed(1) + " " + o.unit, tw = x.measureText(txt).width + 14;
+    const bx = clamp(px - tw / 2, L, w - R - tw);
+    x.fillStyle = "rgba(4,10,24,.92)"; x.strokeStyle = o.color; x.lineWidth = 1;
+    x.beginPath(); x.roundRect(bx, T + 2, tw, 22, 6); x.fill(); x.stroke();
+    x.fillStyle = "#e6f1ff"; x.fillText(txt, bx + 7, T + 17);
+  }
+}
+function wireHover(id) {
+  const c = $(id);
+  const mv = ev => {
+    const o = CH[id]; if (!o || !o.geo) return;
+    const r = c.getBoundingClientRect(), t = o.geo.t0 + o.geo.span * ((ev.clientX - r.left - o.geo.L) / o.geo.pw);
+    let b = -1, bd = 1e18; o.pts.forEach((p, i) => { const dd = Math.abs(p.x - t); if (dd < bd) { bd = dd; b = i; } });
+    o.hover = b; drawChart(id);
+  };
+  c.addEventListener("pointermove", mv); c.addEventListener("pointerdown", mv);
+  c.addEventListener("pointerleave", () => { if (CH[id]) { CH[id].hover = -1; drawChart(id); } });
+}
+wireHover("cT"); wireHover("cN");
+let rzT; window.addEventListener("resize", () => { clearTimeout(rzT); rzT = setTimeout(() => { drawChart("cT"); drawChart("cN"); }, 120); });
+
+async function loadHist() {
+  if (document.hidden) return;
+  try {
+    const r = await fetch(`${DB}/${PATH}/hist.json`, {cache: "no-store"});
+    const h = await r.json();
+    if (!h) return;
+    const since = Date.now() - 24 * 3600 * 1000;
+    const arr = (Array.isArray(h) ? h : Object.values(h))
+      .filter(p => p && typeof p.ts === "number" && p.ts >= since)
+      .sort((a, b) => a.ts - b.ts);
+    const sp = LAST && typeof LAST.setpoint === "number" ? [{v: LAST.setpoint, c: "#ffd23f", t: "target " + LAST.setpoint.toFixed(1)}] : [];
+    setChart("cT", arr.filter(p => p.t > -90).map(p => ({x: p.ts, y: p.t})), {color: "#ff7a45", unit: "°C", refs: sp});
+    const dg = (LAST && typeof LAST.nh3on === "number") ? LAST.nh3on : 25;
+    setChart("cN", arr.filter(p => typeof p.n === "number").map(p => ({x: p.ts, y: p.n})), {color: "#22e4ff", unit: "ppm", floor0: true,
+      refs: [{v: NH3_WARN, c: "#ffb020", t: "warning " + NH3_WARN}, {v: dg, c: "#ff4d6d", t: "danger " + dg}]});
+  } catch (e) {}
+}
+
+// ---------- admin access key ----------
+async function checkKey(k) {
+  try {
+    const r = await fetch(`${DB}/cmd/${encodeURIComponent(k)}.json`, {cache: "no-store"});
+    if (r.status === 200) return true;
+    if (r.status === 401 || r.status === 403) return false;
+    return null;
+  } catch (e) { return null; }
+}
+function authClick() {
+  if (ADMIN) { logout(); toast("Logged out"); }
+  else { $("loginMsg").textContent = ""; $("keyIn").value = ""; $("dlgLogin").showModal(); $("keyIn").focus(); }
+}
+function logout() {
+  KEY = ""; ADMIN = false;
+  sessionStorage.removeItem("bkey"); localStorage.removeItem("bkey");
+  if (LAST) render(LAST); else lockUI();
+}
+async function doLogin() {
+  const k = $("keyIn").value.trim();
+  if (!/^[A-Za-z0-9_-]{16,60}$/.test(k)) { $("loginMsg").textContent = "That does not look like an access key"; return; }
+  const ok = await checkKey(k);
+  if (ok === true) {
+    KEY = k; ADMIN = true;
+    ($("remember").checked ? localStorage : sessionStorage).setItem("bkey", k);
+    $("dlgLogin").close();
+    if (LAST) render(LAST); else lockUI();
+    toast("Controls unlocked", "ok");
+  } else if (ok === false) $("loginMsg").textContent = "Wrong access key";
+  else $("loginMsg").textContent = "Could not reach the database";
+}
+
+// ---------- sending a command and waiting for the brooder's answer ----------
+async function sendCmd(a, v, label) {
+  if (!ADMIN || PENDING || OFFLINE || !(LAST && LAST.rc)) return;
+  const seq = Date.now();
+  PENDING = true; lockUI(); toast(label + ": sending...");
+  try {
+    const r = await fetch(`${DB}/cmd/${encodeURIComponent(KEY)}.json`, {
+      method: "PUT",
+      body: JSON.stringify({seq: seq, a: a, v: v, ts: {".sv": "timestamp"}})
+    });
+    if (r.status === 401 || r.status === 403) { PENDING = false; logout(); toast("The access key was rejected", "bad"); return; }
+    if (!r.ok) throw new Error("http " + r.status);
+  } catch (e) { PENDING = false; lockUI(); toast(label + ": could not send", "bad"); return; }
+
+  let res = null;
+  const t0 = Date.now();
+  while (Date.now() - t0 < 30000) {
+    await sleep(1500);
+    try {
+      const d = await fetchLive();
+      if (d) { render(d); if (d.ak === seq) { res = d.ar; break; } }
+    } catch (e) {}
+  }
+  PENDING = false; lockUI();
+  if (res === 0) toast(label + ": done", "ok");
+  else if (res === 1) toast(label + ": the brooder refused this right now", "bad");
+  else if (res === 2) toast(label + ": expired before the brooder read it", "bad");
+  else toast(label + ": no answer from the brooder (offline or slow)", "bad");
+}
+function toggleH(id) { sendCmd("h" + id, E[id] ? 0 : 1, "Heater " + id + (E[id] ? " off" : " on")); }
+function setDay() {
+  const v = parseInt($("dayIn").value, 10);
+  if (!(v >= 1 && v <= 60)) { toast("Enter a day from 1 to 60", "bad"); return; }
+  sendCmd("day", v, "Set day " + v);
+}
+
+// ---------- start ----------
+(async function init() {
+  if (KEY) {
+    const ok = await checkKey(KEY);
+    if (ok === true) ADMIN = true;
+    else if (ok === false) logout();
+  }
+  poll(); loadHist();
+  setInterval(poll, 6000);
+  setInterval(loadHist, 300000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { poll(); loadHist(); } });
+})();
+</script></body></html>
