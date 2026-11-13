@@ -2,8 +2,16 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
-<link rel="icon" type="image/x-icon" href="https://img.icons8.com/?size=100&id=T1nwu6ocX5Rj&format=png&color=000000">
-<title>BROODERHUB-CONTROL&MONITORING</title>
+<meta name="theme-color" content="#040a18">
+<meta name="description" content="Remote monitoring and control for the smart poultry brooder">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Brooder">
+<title>BrooderHUB-ACMR BroodTECH</title>
 <style>
 :root{
   --bg:#040a18;--panel:rgba(9,20,44,.78);--panel2:rgba(14,30,62,.7);
@@ -210,6 +218,7 @@ dialog::backdrop{background:rgba(2,6,16,.7);backdrop-filter:blur(3px)}
  <div class="hr">
   <span id="clk" class="clock">--:--:--</span>
   <span id="role" class="badge">Viewer</span>
+  <button id="installBtn" class="ghost" hidden>Install app</button>
   <button id="authBtn" class="ghost" onclick="authClick()">Admin login</button>
   <div class="live"><span id="dot" class="dot"></span><span id="status">Connecting</span></div>
  </div>
@@ -832,4 +841,17 @@ function setDay() {
   setInterval(loadHist, 300000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { poll(); loadHist(); } });
 })();
+
+// ---------- installable app (PWA) ----------
+if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+let installEv = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEv = e; $("installBtn").hidden = false; });
+$("installBtn").addEventListener("click", async () => {
+  if (!installEv) return;
+  installEv.prompt(); await installEv.userChoice.catch(() => {});
+  installEv = null; $("installBtn").hidden = true;
+});
+window.addEventListener("appinstalled", () => { $("installBtn").hidden = true; toast("App installed", "ok"); });
 </script></body></html>
